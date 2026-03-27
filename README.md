@@ -1,13 +1,26 @@
 # Leads Importer
 
-MVP сервіс для імпорту, нормалізації, merge та збереження лідів у PostgreSQL.
+Simple MVP for importing leads from CSV/XLSX files into PostgreSQL.
 
-## Stack
-- Python
-- FastAPI
-- PostgreSQL
-- Docker Compose
+## What it does
+- reads CSV and Excel files
+- maps columns using YAML config
+- normalizes lead data
+- merges records by email
+- saves data and import logs to DB
 
-## Run
-docker compose up --build
-"@
+
+## Leads Importer
+
+Simple MVP for importing leads from CSV/XLSX files into PostgreSQL.
+
+## What it does
+- reads CSV and Excel files
+- maps columns using YAML config
+- normalizes lead data
+- merges records by email
+- saves data and import logs to DB
+
+Run locally
+```bash
+python src/cli.py --file test_leads_40_users.csv
