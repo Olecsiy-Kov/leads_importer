@@ -3,11 +3,13 @@ import csv
 import chardet
 import yaml
 from pathlib import Path
+from typing import Any
 
 SUPPORTED_EXCEL_EXTENSIONS = {".xlsx", ".xls", ".xlsm"}
 SUPPORTED_CSV_EXTENSIONS = {".csv", ".txt", ".tsv"}
 
 
+# Detect probable file encoding from raw bytes.
 def detect_encoding(path: Path) -> str:
     with open(path, "rb") as f:
         detected = chardet.detect(f.read(10000)).get("encoding")
@@ -15,6 +17,7 @@ def detect_encoding(path: Path) -> str:
         return detected or "utf-8"
 
 
+# Detect CSV delimiter from file sample.
 def detect_delimiter(path: Path, encoding: str, sample_size: int = 5000) -> str:
     with path.open("r", encoding=encoding, errors="ignore", newline="") as f:
         sample = f.read(sample_size)
@@ -29,13 +32,15 @@ def detect_delimiter(path: Path, encoding: str, sample_size: int = 5000) -> str:
         return ","
 
 
-def read_excel_file(path: Path, sheet_name=0) -> pd.DataFrame:
+# Read Excel file into pandas DataFrame.
+def read_excel_file(path: Path, sheet_name: int | str = 0) -> pd.DataFrame:
     try:
         return pd.read_excel(path, sheet_name=sheet_name)
     except Exception as e:
         raise ValueError(f"Failed to read Excel file '{path}': {e}") from e
 
 
+# Read CSV/TXT/TSV file with encoding fallback.
 def read_csv_file(path: Path) -> pd.DataFrame:
     detected = detect_encoding(path)
 
@@ -60,7 +65,8 @@ def read_csv_file(path: Path) -> pd.DataFrame:
     )
 
 
-def read_file(path, sheet_name=0) -> pd.DataFrame:
+# Read any supported file type and return DataFrame.
+def read_file(path: str | Path, sheet_name: int | str = 0) -> pd.DataFrame:
     path = Path(path)
 
     if not path.exists():
@@ -77,16 +83,19 @@ def read_file(path, sheet_name=0) -> pd.DataFrame:
     raise ValueError(f"Unsupported file extension: {suffix}")
 
 
-def load_mappings(yml_path):
+# Load column mappings from YAML config.
+def load_mappings(yml_path: str | Path) -> dict[str, list[str]]:
     with open(yml_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
-def normalize_name(name):
+# Normalize column name for comparison.
+def normalize_name(name: Any) -> str:
     return str(name).strip().lower()
 
 
-def match_column_to_standard(column_name, mappings):
+# Match source column name to standard field name.
+def match_column_to_standard(column_name: str, mappings: dict[str, list[str]]) -> str | None:
     clean_col = normalize_name(column_name)
 
     for standard_name, variants in mappings.items():
@@ -103,7 +112,8 @@ def match_column_to_standard(column_name, mappings):
     return None
 
 
-def build_rename_map(df_columns, mappings):
+# Build rename map from original columns to standard fields.
+def build_rename_map(df_columns: list[str], mappings: dict[str, list[str]]) -> dict[str, str]:
     rename_map = {}
 
     for col in df_columns:
@@ -114,12 +124,17 @@ def build_rename_map(df_columns, mappings):
     return rename_map
 
 
-def parse_file_to_records(file_path, mapping_file, sheet_name=0):
+# Parse file into cleaned list of records.
+def parse_file_to_records(
+    file_path: str | Path,
+    mapping_file: str | Path,
+    sheet_name: int | str = 0
+) -> list[dict[str, Any]]:
     df = read_file(file_path, sheet_name=sheet_name)
     print("Original columns:", df.columns.tolist())
 
     mappings = load_mappings(mapping_file)
-    rename_map = build_rename_map(df.columns, mappings)
+    rename_map = build_rename_map(df.columns.tolist(), mappings)
 
     print("Rename map:", rename_map)
 

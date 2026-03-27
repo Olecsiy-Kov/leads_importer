@@ -3,6 +3,8 @@ import phonenumbers
 import pandas as pd
 import pycountry
 from phonenumbers import PhoneNumberFormat
+from typing import Any
+
 
 DEMONYM_BY_COUNTRY_CODE = {
     "UA": "Ukrainian",
@@ -15,7 +17,9 @@ DEMONYM_BY_COUNTRY_CODE = {
     "US": "American",
 }
 
-def normalize_email(email):
+
+# Normalize and validate email address.
+def normalize_email(email: Any) -> str | None:
     if email is None:
         return None
 
@@ -29,13 +33,17 @@ def normalize_email(email):
     except EmailNotValidError:
         return None
 
-def normalize_country_iso2(country_name):
+
+# Convert country name to ISO2 country code.
+def normalize_country_iso2(country_name: Any) -> str | None:
     try:
         return pycountry.countries.lookup(country_name).alpha_2
-    except:
+    except Exception:
         return None
 
-def normalize_phone(phone, region=None):
+
+# Normalize phone number to E.164 format or keep raw value in meta.
+def normalize_phone(phone: Any, region: str | None = None) -> tuple[str | None, str | None]:
     if phone is None:
         return None, None
 
@@ -43,7 +51,6 @@ def normalize_phone(phone, region=None):
     if raw_phone == "":
         return None, None
 
-    # Якщо номер уже в міжнародному форматі
     try:
         parsed = phonenumbers.parse(raw_phone, None)
         if phonenumbers.is_valid_number(parsed):
@@ -54,7 +61,6 @@ def normalize_phone(phone, region=None):
     except phonenumbers.NumberParseException:
         pass
 
-    # Якщо є країна — пробуємо з нею
     if region:
         try:
             parsed = phonenumbers.parse(raw_phone, region)
@@ -68,7 +74,9 @@ def normalize_phone(phone, region=None):
 
     return None, raw_phone
 
-def normalize_simple_text(value):
+
+# Normalize simple text field and remove empty values.
+def normalize_simple_text(value: Any) -> str | None:
     if pd.isna(value):
         return None
 
@@ -78,7 +86,9 @@ def normalize_simple_text(value):
 
     return text
 
-def normalize_nationality(value):
+
+# Normalize nationality value using country demonym if possible.
+def normalize_nationality(value: Any) -> str | None:
     value = normalize_simple_text(value)
     if value is None:
         return None
@@ -89,7 +99,9 @@ def normalize_nationality(value):
 
     return value
 
-def normalize_city(city, country_iso2=None):
+
+# Normalize city and remove values that duplicate country.
+def normalize_city(city: Any, country_iso2: str | None = None) -> str | None:
     city = normalize_simple_text(city)
     if city is None:
         return None
@@ -103,7 +115,9 @@ def normalize_city(city, country_iso2=None):
 
     return city
 
-def normalize_record(record: dict) -> dict:
+
+# Normalize one record into unified output format.
+def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
     normalized = {}
     meta_info = {}
 
@@ -138,7 +152,9 @@ def normalize_record(record: dict) -> dict:
 
     return normalized
 
-def normalize_records(records: list[dict]) -> list[dict]:
+
+# Normalize list of records and skip invalid emails.
+def normalize_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     result = []
 
     for record in records:
