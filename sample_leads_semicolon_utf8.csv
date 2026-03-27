@@ -1,0 +1,4 @@
+mail;телефон;страна;имя;фамилия;город;язык;национальность;source;campaign;is_buyer
+oleg.ivanov@example.com;050 333 44 55;Украина;Олег;Іванов;Київ;ru;Ukrainian;telegram;ua_launch;TRUE
+julia.schmidt@example.com;0151 23456789;Germany;Julia;Schmidt;Berlin;de;German;google_ads;de_summer;FALSE
+piotr.nowak@example.com;0048 501 777 888;Poland;Piotr;Nowak;Warsaw;pl;;referral;partner_push;TRUE

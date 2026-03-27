@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pandas
+openpyxl
+pyyaml
+psycopg[binary]
+chardet
+phonenumbers
+pycountry

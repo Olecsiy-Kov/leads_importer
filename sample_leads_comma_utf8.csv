@@ -1,0 +1,6 @@
+Email,Phone,Country,First Name,Last Name,City,Language,Nationality,Tags,Source,Campaign,Is Buyer
+Anna.Kovalenko@example.com,380501112233,Ukraine,Anna,Kovalenko,Kyiv,uk,Ukrainian,"vip,webinar",facebook_ads,spring_sale,TRUE
+Piotr.Nowak@example.com,+48 501 222 333,Poland,Piotr,Nowak,Warsaw,pl,Polish,"expo,b2b",organic,march_poland,FALSE
+marie.dupont@example.com,06 12 34 56 78,France,Marie,Dupont,Paris,fr,French,newsletter,email_campaign,fr_q1,FALSE
+anna.kovalenko@example.com,+380501112244,Ukraine,Anna,,Kyiv,uk,,retargeting,facebook_ads,spring_sale_retarget,TRUE
+bad-email,0500000000,Ukraine,Bad,Email,Kyiv,uk,Ukrainian,,test,bad_row,FALSE
