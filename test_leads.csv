@@ -1,0 +1,21 @@
+e-mail,phone_number,country,first name,last name,city,language,nationality,latest_source,latest_campaign,tags,status
+andriy.melnyk@example.com,+380671234567,Ukraine,Andriy,Melnyk,Lviv,uk,Ukrainian,website,lviv_test,"organic,site",new
+sophie.martin@example.com,+33611223344,France,Sophie,Martin,Paris,fr,French,linkedin,fr_b2b,"lead,priority",contacted
+julia.schmidt@example.com,015100000000,Germany,Julia,Schmidt,Berlin,de,German,google_ads,de_summer,,new
+oleg.ivanov@example.com,050 333 44 55,Ukraine,Олег,Іванов,Київ,ru,Ukrainian,telegram,ua_launch,,new
+piotr.nowak@example.com,501234567,Poland,Piotr,Nowak,Warsaw,pl,Polish,facebook,pl_campaign,,new
+maria.rossi@example.com,+393331112233,Italy,Maria,Rossi,Rome,it,Italian,website,it_launch,"vip",contacted
+john.smith@example.com,1234567890,USA,John,Smith,New York,en,American,google_ads,us_test,,new
+anna.kowalska@example.com,+48555111222,Poland,Anna,Kowalska,Krakow,pl,Polish,linkedin,pl_b2b,"lead",contacted
+ivan.petrov@example.com,,Ukraine,Ivan,Petrov,Kharkiv,ru,Ukrainian,telegram,ua_test,,new
+lucas.muller@example.com,+4915112345678,Germany,Lucas,Muller,Hamburg,de,German,website,de_site,,new
+emma.dubois@example.com,0612345678,France,Emma,Dubois,Lyon,fr,French,facebook,fr_campaign,,new
+daniel.garcia@example.com,+34600111222,Spain,Daniel,Garcia,Madrid,es,Spanish,google_ads,es_ads,,contacted
+kate.brown@example.com,+447911123456,UK,Kate,Brown,London,en,British,website,uk_launch,,new
+serhii.bondar@example.com,0679998877,Ukraine,Serhii,Bondar,Odesa,uk,Ukrainian,telegram,ua_ads,,new
+tomasz.zielinski@example.com,+48500111222,Poland,Tomasz,Zielinski,Gdansk,pl,Polish,linkedin,pl_leads,,new
+olga.koval@example.com,,Ukraine,Olga,Koval,Kyiv,uk,Ukrainian,facebook,ua_fb,,new
+max.mustermann@example.com,+491701234567,Germany,Max,Mustermann,Munich,de,German,google_ads,de_campaign,,new
+laura.jones@example.com,+447700900123,UK,Laura,Jones,Manchester,en,British,website,uk_site,,contacted
+pierre.dupont@example.com,+33699887766,France,Pierre,Dupont,Marseille,fr,French,linkedin,fr_leads,,new
+andriy.melnyk@example.com,+380671111111,Ukraine,Andriy,Melnyk,Lviv,uk,Ukrainian,website,lviv_update,"updated",contacted

@@ -1,15 +1,14 @@
 .venv/
-venv/
 __pycache__/
 *.pyc
+
 .env
-.idea/
-.vscode/
-*.log
-*.sqlite3
-.DS_Store
-test_*.csv
+service_account.json
+
+dirty_leads/
 Mailchimp/
 
-uploads/
-tmp/
+.idea/
+.vscode/
+
+*.log
