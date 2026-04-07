@@ -28,6 +28,8 @@ LEAD_FIELDS = [
     "meta_info",
 ]
 
+CHUNK_SIZE = 1000
+
 
 def get_connection() -> psycopg.Connection:
     dsn = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_DSN") or DEFAULT_DSN
@@ -96,6 +98,11 @@ def create_table_if_not_exists() -> None:
         conn.commit()
 
 
+def chunked(items: list[dict[str, Any]], size: int):
+    for i in range(0, len(items), size):
+        yield items[i:i + size]
+
+
 def _prepare_record(record: dict[str, Any]) -> dict[str, Any]:
     data: dict[str, Any] = {}
 
@@ -117,14 +124,33 @@ def _prepare_record(record: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def get_existing_record(cur: psycopg.Cursor, email: str) -> dict[str, Any] | None:
-    cur.execute("SELECT * FROM leads WHERE email = %s", (email,))
-    return cur.fetchone()
+def get_existing_records_by_emails(
+    cur: psycopg.Cursor,
+    emails: list[str],
+) -> dict[str, dict[str, Any]]:
+    if not emails:
+        return {}
 
-
-def insert_record(cur: psycopg.Cursor, record: dict[str, Any]) -> None:
-    data = _prepare_record(record)
     cur.execute(
+        """
+        SELECT *
+        FROM leads
+        WHERE email = ANY(%s)
+        """,
+        (emails,),
+    )
+
+    rows = cur.fetchall()
+    return {row["email"]: row for row in rows}
+
+
+def insert_records_batch(cur: psycopg.Cursor, records: list[dict[str, Any]]) -> None:
+    if not records:
+        return
+
+    prepared = [_prepare_record(record) for record in records]
+
+    cur.executemany(
         """
         INSERT INTO leads (
             email, phone, country_iso2, first_name, last_name, city, language,
@@ -138,31 +164,52 @@ def insert_record(cur: psycopg.Cursor, record: dict[str, Any]) -> None:
             %(tags)s, %(status)s, %(meta_info)s::jsonb, NOW(), NOW()
         )
         """,
-        data,
+        prepared,
     )
 
 
-def update_record(cur: psycopg.Cursor, email: str, changed_fields: dict[str, Any]) -> None:
-    if not changed_fields:
+def update_records_batch(
+    cur: psycopg.Cursor,
+    updates: list[tuple[str, dict[str, Any]]],
+) -> None:
+    if not updates:
         return
 
-    data = _prepare_record(changed_fields)
-    data["email"] = email
+    batch_data = []
 
-    parts = []
-    for field in changed_fields:
-        if field == "email":
+    for email, changed_fields in updates:
+        if not changed_fields:
             continue
-        if field == "meta_info":
-            parts.append("meta_info = %(meta_info)s::jsonb")
-        else:
-            parts.append(f"{field} = %({field})s")
 
-    parts.append("updated_at = NOW()")
+        data = _prepare_record(changed_fields)
+        data["email"] = email
+        batch_data.append(data)
 
-    cur.execute(
-        f"UPDATE leads SET {', '.join(parts)} WHERE email = %(email)s",
-        data,
+    if not batch_data:
+        return
+
+    cur.executemany(
+        """
+        UPDATE leads
+        SET
+            phone = COALESCE(%(phone)s, phone),
+            country_iso2 = COALESCE(%(country_iso2)s, country_iso2),
+            first_name = COALESCE(%(first_name)s, first_name),
+            last_name = COALESCE(%(last_name)s, last_name),
+            city = COALESCE(%(city)s, city),
+            language = COALESCE(%(language)s, language),
+            nationality = COALESCE(%(nationality)s, nationality),
+            is_buyer = COALESCE(%(is_buyer)s, is_buyer),
+            latest_source = COALESCE(%(latest_source)s, latest_source),
+            latest_campaign = COALESCE(%(latest_campaign)s, latest_campaign),
+            brevo_id = COALESCE(%(brevo_id)s, brevo_id),
+            tags = COALESCE(%(tags)s, tags),
+            status = COALESCE(%(status)s, status),
+            meta_info = COALESCE(%(meta_info)s::jsonb, meta_info),
+            updated_at = NOW()
+        WHERE email = %(email)s
+        """,
+        batch_data,
     )
 
 
@@ -238,45 +285,59 @@ def save_records(records: list[dict[str, Any]], file_name: str) -> dict[str, Any
 
     with get_connection() as conn:
         with conn.cursor() as cur:
-            for record in records:
-                email = record.get("email")
+            for chunk in chunked(records, CHUNK_SIZE):
+                emails = []
+                for record in chunk:
+                    email = record.get("email")
+                    if email:
+                        emails.append(email)
 
-                if not email:
-                    skipped += 1
-                    errors.append({"error": "missing email", "record": record})
-                    continue
+                existing_map = get_existing_records_by_emails(cur, emails)
 
-                try:
-                    existing = get_existing_record(cur, email)
+                to_insert = []
+                to_update = []
 
-                    # ВАЖЛИВО: merge робимо і для existing, і для нового запису,
-                    # щоб meta_info.import_history завжди заповнювався.
-                    merged = merge_records(
-                        existing_record=existing,
-                        new_record=record,
-                        filename=file_name,
-                        imported_at=imported_at,
-                        raw_row=record,
-                    )
+                for record in chunk:
+                    email = record.get("email")
 
-                    if existing:
-                        changed_fields = get_changed_fields(existing, merged)
+                    if not email:
+                        skipped += 1
+                        errors.append({"error": "missing email", "record": record})
+                        continue
 
-                        if changed_fields:
-                            update_record(cur, email, changed_fields)
-                            updated += 1
-                    else:
-                        insert_record(cur, merged)
-                        inserted += 1
+                    try:
+                        existing = existing_map.get(email)
 
-                except Exception as exc:
-                    skipped += 1
-                    errors.append(
-                        {
-                            "email": email,
-                            "error": str(exc),
-                        }
-                    )
+                        merged = merge_records(
+                            existing_record=existing,
+                            new_record=record,
+                            filename=file_name,
+                            imported_at=imported_at,
+                            raw_row=record,
+                        )
+
+                        if existing:
+                            changed_fields = get_changed_fields(existing, merged)
+
+                            if changed_fields:
+                                to_update.append((email, changed_fields))
+                                updated += 1
+                        else:
+                            to_insert.append(merged)
+                            inserted += 1
+
+                    except Exception as exc:
+                        skipped += 1
+                        errors.append(
+                            {
+                                "email": email,
+                                "error": str(exc),
+                            }
+                        )
+
+                insert_records_batch(cur, to_insert)
+                update_records_batch(cur, to_update)
+                conn.commit()
 
             status = "success"
             if errors and (inserted > 0 or updated > 0):

@@ -1,46 +1,69 @@
-import pandas as pd
 import csv
-import chardet
-import yaml
 from pathlib import Path
 from typing import Any
+
+import chardet
+import pandas as pd
+import yaml
+
+from logger_utils import debug
+
 
 SUPPORTED_EXCEL_EXTENSIONS = {".xlsx", ".xls", ".xlsm"}
 SUPPORTED_CSV_EXTENSIONS = {".csv", ".txt", ".tsv"}
 
 
-# Detect probable file encoding from raw bytes.
 def detect_encoding(path: Path) -> str:
     with open(path, "rb") as f:
         detected = chardet.detect(f.read(10000)).get("encoding")
-        print(f"Detected: Encoding {detected}")
-        return detected or "utf-8"
+
+    encoding = detected or "utf-8"
+    debug(f"Detected encoding for {path.name}: {encoding}")
+    return encoding
 
 
-# Detect CSV delimiter from file sample.
 def detect_delimiter(path: Path, encoding: str, sample_size: int = 5000) -> str:
     with path.open("r", encoding=encoding, errors="ignore", newline="") as f:
         sample = f.read(sample_size)
 
     try:
-        return csv.Sniffer().sniff(sample, delimiters=";,\t").delimiter
+        delimiter = csv.Sniffer().sniff(sample, delimiters=";,\t").delimiter
+        debug(f"Detected delimiter for {path.name}: {repr(delimiter)}")
+        return delimiter
     except csv.Error:
         if path.suffix.lower() == ".tsv":
             return "\t"
+
         if ";" in sample and sample.count(";") >= sample.count(","):
             return ";"
+
         return ","
 
 
-# Read Excel file into pandas DataFrame.
 def read_excel_file(path: Path, sheet_name: int | str = 0) -> pd.DataFrame:
     try:
-        return pd.read_excel(path, sheet_name=sheet_name)
+        raw_df = pd.read_excel(path, sheet_name=sheet_name, header=None)
+
+        header_row = None
+
+        for i, row in raw_df.iterrows():
+            row_values = [str(value).strip().lower() for value in row.values]
+
+            if any("email" in value for value in row_values):
+                header_row = i
+                break
+
+        if header_row is None:
+            raise ValueError(f"Could not detect header row in Excel file: {path}")
+
+        debug(f"Detected header row at index {header_row} in {path.name}")
+
+        return pd.read_excel(path, sheet_name=sheet_name, header=header_row)
+
     except Exception as e:
         raise ValueError(f"Failed to read Excel file '{path}': {e}") from e
 
 
-# Read CSV/TXT/TSV file with encoding fallback.
 def read_csv_file(path: Path) -> pd.DataFrame:
     detected = detect_encoding(path)
 
@@ -54,18 +77,17 @@ def read_csv_file(path: Path) -> pd.DataFrame:
     for encoding in encodings_to_try:
         try:
             delimiter = detect_delimiter(path, encoding)
-            print(f"Trying encoding={encoding}, delimiter={repr(delimiter)}")
+            debug(f"Trying {path.name} with encoding={encoding}, delimiter={repr(delimiter)}")
             return pd.read_csv(path, sep=delimiter, encoding=encoding)
         except Exception as e:
             last_error = e
-            print(f"Failed with encoding={encoding}: {e}")
+            debug(f"Failed reading {path.name} with encoding={encoding}: {e}")
 
     raise ValueError(
         f"Failed to read text file '{path}'. Tried encodings: {encodings_to_try}. Last error: {last_error}"
     )
 
 
-# Read any supported file type and return DataFrame.
 def read_file(path: str | Path, sheet_name: int | str = 0) -> pd.DataFrame:
     path = Path(path)
 
@@ -83,18 +105,15 @@ def read_file(path: str | Path, sheet_name: int | str = 0) -> pd.DataFrame:
     raise ValueError(f"Unsupported file extension: {suffix}")
 
 
-# Load column mappings from YAML config.
 def load_mappings(yml_path: str | Path) -> dict[str, list[str]]:
     with open(yml_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
-# Normalize column name for comparison.
 def normalize_name(name: Any) -> str:
     return str(name).strip().lower()
 
 
-# Match source column name to standard field name.
 def match_column_to_standard(column_name: str, mappings: dict[str, list[str]]) -> str | None:
     clean_col = normalize_name(column_name)
 
@@ -112,34 +131,51 @@ def match_column_to_standard(column_name: str, mappings: dict[str, list[str]]) -
     return None
 
 
-# Build rename map from original columns to standard fields.
 def build_rename_map(df_columns: list[str], mappings: dict[str, list[str]]) -> dict[str, str]:
     rename_map = {}
 
     for col in df_columns:
         standard_name = match_column_to_standard(col, mappings)
-        if standard_name:
+        if standard_name and standard_name not in rename_map.values():
             rename_map[col] = standard_name
 
     return rename_map
 
 
-# Parse file into cleaned list of records.
+def ensure_unique_columns(df: pd.DataFrame) -> pd.DataFrame:
+    columns = []
+    seen = {}
+
+    for col in df.columns:
+        col_str = str(col)
+        if col_str not in seen:
+            seen[col_str] = 0
+            columns.append(col_str)
+        else:
+            seen[col_str] += 1
+            columns.append(f"{col_str}__dup_{seen[col_str]}")
+
+    df.columns = columns
+    return df
+
+
 def parse_file_to_records(
     file_path: str | Path,
     mapping_file: str | Path,
-    sheet_name: int | str = 0
+    sheet_name: int | str = 0,
 ) -> list[dict[str, Any]]:
     df = read_file(file_path, sheet_name=sheet_name)
-    print("Original columns:", df.columns.tolist())
+    df = ensure_unique_columns(df)
+
+    debug(f"Original columns: {df.columns.tolist()}")
 
     mappings = load_mappings(mapping_file)
     rename_map = build_rename_map(df.columns.tolist(), mappings)
 
-    print("Rename map:", rename_map)
+    debug(f"Rename map: {rename_map}")
 
     unmapped = [col for col in df.columns if col not in rename_map]
-    print("Unmapped columns:", unmapped)
+    debug(f"Unmapped columns: {unmapped}")
 
     df = df.rename(columns=rename_map)
     df = df[[col for col in df.columns if col in mappings.keys()]]
@@ -148,7 +184,12 @@ def parse_file_to_records(
     if "email" not in df.columns:
         raise ValueError("Column 'email' not found in file")
 
-    df["email"] = df["email"].astype(str).str.strip().str.lower()
+    email_series = df["email"]
+
+    if isinstance(email_series, pd.DataFrame):
+        email_series = email_series.iloc[:, 0]
+
+    df["email"] = email_series.astype(str).str.strip().str.lower()
     df = df[df["email"] != ""]
     df = df.drop_duplicates(subset=["email"], keep="last")
 
