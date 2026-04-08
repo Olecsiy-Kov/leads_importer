@@ -71,18 +71,10 @@ def get_existing_record_timestamp(existing_record: dict | None) -> datetime | No
     existing_record = existing_record or {}
 
     meta_info = existing_record.get("meta_info") or {}
-    import_history = meta_info.get("import_history") or []
 
-    latest_from_history = None
-    for item in import_history:
-        if not isinstance(item, dict):
-            continue
-        imported_at = parse_datetime(item.get("imported_at"))
-        if imported_at and (latest_from_history is None or imported_at > latest_from_history):
-            latest_from_history = imported_at
-
-    if latest_from_history:
-        return latest_from_history
+    last_imported_at = parse_datetime(meta_info.get("last_imported_at"))
+    if last_imported_at:
+        return last_imported_at
 
     updated_at = parse_datetime(existing_record.get("updated_at"))
     if updated_at:
@@ -185,14 +177,6 @@ def merge_newer_file_field(
     return old_value
 
 
-def build_import_history_entry(filename: str, imported_at: Any, raw_row: dict | None) -> dict:
-    return {
-        "file": filename,
-        "imported_at": imported_at,
-        "raw_row": deepcopy(raw_row or {}),
-    }
-
-
 def merge_raw_phones(old_meta_info: dict, new_meta_info: dict) -> list[str] | None:
     values = []
     for item in (old_meta_info or {}).get("raw_phones", []):
@@ -228,20 +212,9 @@ def merge_meta_info(
     else:
         meta_info.pop("raw_phones", None)
 
-    for key, value in new_meta_info.items():
-        if key in {"raw_phones", "import_history"}:
-            continue
-        meta_info[key] = deepcopy(value)
+    meta_info["last_import_file"] = filename
+    meta_info["last_imported_at"] = imported_at
 
-    import_history = list(meta_info.get("import_history") or [])
-    import_history.append(
-        build_import_history_entry(
-            filename=filename,
-            imported_at=imported_at,
-            raw_row=raw_row,
-        )
-    )
-    meta_info["import_history"] = import_history
     return meta_info
 
 

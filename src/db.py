@@ -319,8 +319,16 @@ def save_records(records: list[dict[str, Any]], file_name: str) -> dict[str, Any
                         if existing:
                             changed_fields = get_changed_fields(existing, merged)
 
+                            business_changed_fields = {
+                                key: value
+                                for key, value in changed_fields.items()
+                                if key != "meta_info"
+                            }
+
                             if changed_fields:
                                 to_update.append((email, changed_fields))
+
+                            if business_changed_fields:
                                 updated += 1
                         else:
                             to_insert.append(merged)

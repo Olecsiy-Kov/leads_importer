@@ -53,7 +53,7 @@ def normalize_phone(phone: Any, region: str | None = None) -> tuple[str | None, 
 
     try:
         parsed = phonenumbers.parse(raw_phone, None)
-        if phonenumbers.is_valid_number(parsed):
+        if phonenumbers.is_possible_number(parsed):
             return (
                 phonenumbers.format_number(parsed, PhoneNumberFormat.E164),
                 None,
@@ -64,7 +64,7 @@ def normalize_phone(phone: Any, region: str | None = None) -> tuple[str | None, 
     if region:
         try:
             parsed = phonenumbers.parse(raw_phone, region)
-            if phonenumbers.is_valid_number(parsed):
+            if phonenumbers.is_possible_number(parsed):
                 return (
                     phonenumbers.format_number(parsed, PhoneNumberFormat.E164),
                     None,
